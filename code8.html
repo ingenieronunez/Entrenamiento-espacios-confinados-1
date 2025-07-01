@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Simulador de Seguridad (Layout Final)</title>
+    <style>
+        /* --- ESTILOS GENERALES Y DEL JUEGO --- */
+        html, body {
+            margin: 0; padding: 0; overflow: hidden; height: 100%; width: 100%; background-color: #000; display: flex; justify-content: center; align-items: center; font-family: Arial, sans-serif;
+        }
+
+        #game-wrapper {
+            display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;
+        }
+
+        #game-container {
+            position: relative; aspect-ratio: 16 / 9; width: 100%; max-width: 1280px; max-height: 100vh; max-width: calc(100vh * (16 / 9));
+            border: 2px solid #fff; background-image: url('fondo vacio.png'); background-size: cover; background-position: center;
+            overflow: hidden;
+        }
+        
+        #game-container::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 220, 0.1); animation: pulse-light 5s infinite ease-in-out; pointer-events: none;
+        }
+        @keyframes pulse-light { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+
+        .game-item {
+            position: absolute; cursor: pointer; transition: transform 0.2s ease, left 1.5s ease-in-out, top 1.5s ease-in-out;
+        }
+        .game-item:hover { transform: scale(1.15) !important; filter: drop-shadow(0 0 10px yellow); }
+        
+        #operador { z-index: 50; transition: transform 0.2s, left 1.5s ease-in-out, top 1.5s ease-in-out; pointer-events: none; }
+        #operador.flipped { transform: scaleX(-1); }
+        #operador.flipped:hover { transform: scaleX(-1) scale(1.15); }
+
+        .checkmark-overlay { position: absolute; width: 5vmax; height: 5vmax; max-width: 50px; max-height: 50px; background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MiA1MiI+PHBhdGggZmlsbD0iIzQwYzc0YyIgZD0iTTI2IDBDMTEuNjYgMCAwIDExLjY2IDAgMjZzMTEuNjYgMjYgMjYgMjYgMjYtMTEuNjYgMjYtMjZTNDAuMzQgMCAyNiAwek0yMS41IDQwTDEwIDI4LjVsNC41LTQuNUwyMS41IDMxIDM3LjUgMTVMMzIgMTkuNUwyMS41IDQweiIvPjwvc3ZnPg=='); background-size: contain; background-repeat: no-repeat; pointer-events: none; z-index: 100; }
+
+        /* --- POSICIONAMIENTO INICIAL CORREGIDO Y DESPEJADO --- */
+        #operador { left: 5%; top: 70%; height: 20%; width: auto; }
+        #vigia { left: 35%; top: 60%; height: 20%; width: auto; } 
+        
+        .document-item { background-color: #fff; color: #000; border: 1px solid #333; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); padding: 1%; text-align: center; font-weight: bold; display: flex; align-items: center; justify-content: center; font-size: 1vw; }
+        #ats { left: 45%; top: 80%; width: 7%; height: 15%; }
+        #permiso { left: 55%; top: 80%; width: 7%; height: 15%; }
+        
+        #loto { left: 90%; top: 55%; width: 5.5%; }
+        #medidor { left: 12%; top: 78%; width: 8%; }
+        #ventilacion { left: 80%; top: 15%; width: 17%; }
+        #tripode { left: 10%; top: 25%; width: 11%; }
+        
+        #mascara { left: 65%; top: 15%; width: 6%; }
+        #autonomo { left: 72%; top: 15%; width: 7%; }
+        #arnes { left: 85%; top: 28%; width: 5.5%; } 
+        
+        #cloacas { left: 48%; top: 55%; width: 10%; }
+        
+        /* --- ESTILOS DE LA VENTANA MODAL (POP-UP) --- */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center; }
+        .modal-content { background-color: #fefefe; color: #333; margin: auto; padding: 20px 30px 30px 30px; border: 1px solid #888; width: 90%; max-width: 700px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
+        .modal-content h3 { color: #0056b3; font-size: 2.2vmax; margin-bottom: 15px; }
+        .modal-content p { font-size: 1.8vmax; line-height: 1.6; text-align: center; }
+        .modal-content button { background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; font-size: 1.8vmax; cursor: pointer; margin-top: 20px; }
+        .close-button { color: #aaa; position: absolute; top: 10px; right: 25px; font-size: 4vmax; font-weight: bold; cursor: pointer; }
+
+        /* --- FEEDBACK Y ANIMACIONES --- */
+        #feedback-message { position: absolute; top: -100px; left: 50%; transform: translateX(-50%); background-color: #dc3545; color: white; padding: 15px 30px; border-radius: 0 0 10px 10px; z-index: 1100; transition: top 0.5s ease-in-out; font-size: 2.2vmax; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+        #feedback-message.show { top: 0; }
+        .shake { animation: shake 0.5s; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 10%, 30%, 50%, 70%, 90% {transform: translateX(-5px);} 20%, 40%, 60%, 80% {transform: translateX(5px);} }
+
+        /* --- Overlay para modo vertical en celulares --- */
+        #rotate-device-overlay { display: none; position: fixed; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); color: white; z-index: 2000; flex-direction: column; justify-content: center; align-items: center; text-align: center; font-size: 20px; }
+        @media (orientation: portrait) { #rotate-device-overlay { display: flex; } #game-wrapper { display: none; } }
+    </style>
+</head>
+<body>
+
+    <div id="game-wrapper">
+        <div id="game-container">
+            <div id="feedback-message"></div>
+            <img src="Operador.png" id="operador" class="game-item" alt="Operador">
+            <img src="Vigia.png" id="vigia" class="game-item" data-step="vigia" alt="Vigía">
+            <img src="ATS.png" id="ats" class="game-item" data-step="ats" alt="ATS">
+            <img src="Permiso de trabajo.png" id="permiso" class="game-item" data-step="permiso" alt="Permiso de Trabajo">
+            <img src="Bloqueo LOTO.png" id="loto" class="game-item" data-step="loto" alt="Bloqueo LOTO">
+            <img src="Medidor de gases.png" id="medidor" class="game-item" data-step="medidor" alt="Medidor de Gases">
+            <img src="Ventilacion forzada.png" id="ventilacion" class="game-item" data-step="ventilacion" alt="Ventilación Forzada">
+            <img src="Tripode de rescate.png" id="tripode" class="game-item" data-step="tripode" alt="Trípode de Rescate">
+            <img src="Mascara con filtros de gases.png" id="mascara" class="game-item" data-step="error-mascara" alt="Máscara de Gases">
+            <img src="equipo autonomo.png" id="autonomo" class="game-item" data-step="epp" alt="Equipo Autónomo">
+            <img src="Arnes.png" id="arnes" class="game-item" data-step="arnes" alt="Arnés de Seguridad"> 
+            <img src="Boca de acceso a cloacas.png" id="cloacas" class="game-item" data-step="cloacas" alt="Boca de acceso">
+        </div>
+    </div>
+    
+    <div id="rotate-device-overlay">
+        <p>Por favor, gire su dispositivo a modo horizontal para jugar.</p>
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16"><path d="M8 11.5a.5.5 0 0 1-.5-.5V2.414l-1.646 1.647a.5.5 0 1 1-.708-.708l2.5-2.5a.5.5 0 0 1 .708 0l2.5 2.5a.5.5 0 1 1-.708.708L8.5 2.414V11a.5.5 0 0 1-.5.5zM2.755 13.7a.5.5 0 0 1 .5-.5h9.5a.5.5 0 0 1 0 1h-9.5a.5.5 0 0 1-.5-.5z"/></svg>
+    </div>
+
+    <div id="explanation-modal" class="modal"> <div class="modal-content"> <span class="close-button">&times;</span> <div id="modal-text"></div> <button id="play-again-button" style="display:none;">Jugar de Nuevo</button> </div> </div>
+    <div id="welcome-modal" class="modal"> <div class="modal-content"> <h3 id="loading-text">Cargando recursos...</h3> </div> </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            const gameContainer = document.getElementById('game-container');
+            const explanationModal = document.getElementById('explanation-modal');
+            const modalText = document.getElementById('modal-text');
+            const closeButton = explanationModal.querySelector('.close-button');
+            const welcomeModal = document.getElementById('welcome-modal');
+            const loadingText = document.getElementById('loading-text');
+            const feedbackMessage = document.getElementById('feedback-message');
+            const operator = document.getElementById('operador');
+            const playAgainButton = document.getElementById('play-again-button');
+
+            let originalPositions = {};
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            const correctOrder = ['vigia', 'ats', 'permiso', 'loto', 'medidor', 'ventilacion', 'tripode', 'arnes', 'epp', 'cloacas'];
+            
+            const explanations = {
+                vigia: "Muy bien, ¡has seleccionado a la persona que realizará el rol de Vigía! Planificaron la tarea junto con la brigada y ahora deben evaluar los riesgos y peligros.",
+                ats: "¡Perfecto! Han realizado el análisis de trabajo seguro en conjunto y han determinado que, por los peligros y riesgos asociados, posiblemente sea un Espacio Confinado Clase A y deben solicitar los permisos pertinentes.",
+                permiso: "¡Excelente! ¡Han realizado el permiso de Espacio Confinado!  han determinado que necesitan cortar y bloquear el ingreso de efluentes y revisar los valores de gases.",
+                loto: "¡Muy bien! Han realizado el bloqueo, candadeo y etiquetado de la entrada de efluentes. Ahora, revisemos los valores de concentración de gases.",
+                medidor: "¡Excelente! Han realizado las mediciones de gases y han determinado la presencia de gases tóxicos y niveles de oxígeno inferiores al 19%. ¿Qué podriamos hacer para mejorar las condiciones de seguridad del trabajo?",
+                ventilacion: "¡Muy bien pensado! Colocando el sistema de ventilación forzada aumentamos la presencia de oxígeno en el espacio confinado. Las nuevas mediciones indican oxigeno mayor al 21%, pero ¡no te confíes!",
+                tripode: "¡Perfecto! Han solicitado el apoyo de la Brigada para el armado del Sistema de Rescate. Ahora, debes prepararte para ingresar.",
+                arnes: "Muy bien! ya te colocaste el arnés para que puedan rescatarte en caso de emergencia!.",
+                epp: "¡Bien hecho! Te has equipado con un equipo autónomo. ¡Estás listo! puedes ingresar y trabajar de manera segura",
+                cloacas: "¡Muy bien, has ingresado al espacio confinado a realizar el trabajo! ¡No olvides estar en comunicación permanente con tu vigía!"
+
+            };
+
+            let currentStep = 0;
+            let isActionInProgress = false;
+
+            function speak(text, pitch = 1, rate = 1) {
+                if (speechSynthesis.speaking) speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'es-ES';
+                utterance.pitch = pitch;
+                utterance.rate = rate;
+                speechSynthesis.speak(utterance);
+            }
+
+            function preloadImages(urls, allImagesLoadedCallback) {
+                let loadedCounter = 0;
+                let toBeLoaded = urls.length;
+                if (toBeLoaded === 0) { allImagesLoadedCallback(); return; }
+                urls.forEach(url => {
+                    let img = new Image();
+                    img.src = url;
+                    img.onload = img.onerror = () => {
+                        loadedCounter++;
+                        if (loadedCounter === toBeLoaded) allImagesLoadedCallback();
+                    };
+                });
+            }
+
+            function initializeGame() {
+                const welcomeText = "Eres un trabajador al que le han encomendado realizar una inspección en un tramo del sistema de cloacas. Deberás ingresar por la boca de acceso del centro de la pantalla, pero cumpliendo los pasos para que el trabajo sea seguro.";
+                const welcomeContent = `
+                    <h3>Bienvenido al Simulador de Seguridad</h3>
+                    <p style="text-align:center;">${welcomeText}</p>
+                    <button id="start-game-button">¡Comenzar!</button>`;
+                welcomeModal.style.display = 'flex';
+                loadingText.parentElement.innerHTML = welcomeContent;
+
+                // --- MODIFICACIÓN: Leer el mensaje al aparecer el modal ---
+                speak(welcomeText);
+
+                document.getElementById('start-game-button').addEventListener('click', () => {
+                    if (audioContext.state === 'suspended') audioContext.resume();
+                    speechSynthesis.cancel(); // Detiene el habla si aún está leyendo
+                    startGame();
+                });
+            }
+
+            function startGame() {
+                welcomeModal.style.display = 'none';
+                currentStep = 0;
+                isActionInProgress = false;
+                hideFeedbackMessage();
+                
+                document.querySelectorAll('.checkmark-overlay').forEach(e => e.remove());
+                document.querySelectorAll('.game-item').forEach(item => {
+                    item.style.transition = 'transform 0.2s ease, left 1.5s ease-in-out, top 1.5s ease-in-out';
+                    if (originalPositions[item.id]) {
+                        item.style.left = originalPositions[item.id].left;
+                        item.style.top = originalPositions[item.id].top;
+                    }
+                    item.style.display = item.classList.contains('document-item') ? 'flex' : 'block';
+                    item.style.pointerEvents = 'auto';
+                });
+                 operator.style.left = originalPositions.operador.left;
+                 operator.style.top = originalPositions.operador.top;
+                 operator.classList.remove('flipped');
+            }
+            
+            function onGameClick(event) {
+                event.preventDefault();
+                if (isActionInProgress) return;
+                const clickedItem = event.target.closest('.game-item');
+                if (!clickedItem) return;
+
+                const stepId = clickedItem.getAttribute('data-step');
+                if (!stepId || clickedItem.style.pointerEvents === 'none') return;
+
+                if (stepId === 'error-mascara') {
+                    handleIncorrectChoice(clickedItem, "¡Error Crítico! Una máscara con filtros no protege contra falta de oxígeno o altas concentraciones de gas. Se requiere un equipo autónomo.", true);
+                    return;
+                }
+                
+                if (stepId === correctOrder[currentStep]) {
+                    handleCorrectStep(clickedItem, stepId);
+                } else {
+                    handleIncorrectStep(clickedItem);
+                }
+            }
+            
+            function handleCorrectStep(itemElement, stepId) {
+                isActionInProgress = true;
+                itemElement.style.pointerEvents = 'none';
+
+                moveOperatorTo(itemElement, () => {
+                    // --- MODIFICACIÓN: Ocultar el feedback persistente al elegir el paso correcto ---
+                    if (stepId === 'epp') {
+                        hideFeedbackMessage();
+                    }
+
+                    playSound('correct');
+                    placeCheckmark(itemElement);
+                    
+                    let explanationText = explanations[stepId];
+                    
+                    if (stepId === 'cloacas') {
+                        modalText.innerHTML = `<h3>¡Trabajo Completado!</h3><p>${explanationText}</p>`;
+                        playAgainButton.style.display = 'block';
+                        speak(explanationText);
+                    } else {
+                        modalText.innerHTML = `<h3>¡Paso Correcto!</h3><p>${explanationText}</p>`;
+                        playAgainButton.style.display = 'none';
+                        speak(explanationText, 1, 1.1);
+                    }
+                    
+                    explanationModal.style.display = 'flex';
+                    isActionInProgress = false;
+                    currentStep++;
+                });
+            }
+
+            function handleIncorrectStep(itemElement) {
+                handleIncorrectChoice(itemElement, "¡Orden incorrecto! Intenta con otro paso.");
+            }
+
+            function handleIncorrectChoice(itemElement, message, persistent = false) {
+                isActionInProgress = true;
+                playSound('incorrect');
+                speak(message, 1.2);
+                showFeedbackMessage(message, persistent);
+                itemElement.classList.add('shake');
+                setTimeout(() => {
+                    itemElement.classList.remove('shake');
+                    isActionInProgress = false;
+                }, 500);
+            }
+            
+            function moveOperatorTo(targetElement, onArrivalCallback) {
+                // ... (código sin cambios)
+                const operatorRect = operator.getBoundingClientRect();
+                const targetRect = targetElement.getBoundingClientRect();
+                const containerRect = gameContainer.getBoundingClientRect();
+                let destX, destY;
+                const operatorWidthPercentage = (operator.width / containerRect.width) * 100;
+                const targetLeftPercentage = (targetRect.left - containerRect.left) / containerRect.width * 100;
+                const operatorLeftPercentage = parseFloat(operator.style.left);
+                if (targetLeftPercentage < operatorLeftPercentage) {
+                    operator.classList.add('flipped');
+                    destX = `${targetLeftPercentage + (targetRect.width / containerRect.width * 100)}%`;
+                } else {
+                    operator.classList.remove('flipped');
+                    destX = `${targetLeftPercentage - operatorWidthPercentage}%`;
+                }
+                destY = `${(targetRect.top - containerRect.top + (targetRect.height / 2) - (operator.height / 2)) / containerRect.height * 100}%`;
+                operator.style.left = destX;
+                operator.style.top = destY;
+                setTimeout(onArrivalCallback, 1500); 
+            }
+
+            function showFeedbackMessage(message, persistent = false) {
+                feedbackMessage.textContent = message;
+                feedbackMessage.classList.add('show');
+                if (!persistent) {
+                    setTimeout(() => feedbackMessage.classList.remove('show'), 3000);
+                }
+            }
+
+            function hideFeedbackMessage() {
+                feedbackMessage.classList.remove('show');
+            }
+
+            function placeCheckmark(targetElement) {
+                // ... (código sin cambios)
+                const checkmark = document.createElement('div');
+                checkmark.className = 'checkmark-overlay';
+                const rect = targetElement.getBoundingClientRect();
+                const containerRect = gameContainer.getBoundingClientRect();
+                const checkmarkSize = Math.min(rect.width, rect.height, 50);
+                checkmark.style.width = `${checkmarkSize}px`;
+                checkmark.style.height = `${checkmarkSize}px`;
+                checkmark.style.left = `${rect.left - containerRect.left + (rect.width / 2) - (checkmarkSize / 2)}px`;
+                checkmark.style.top = `${rect.top - containerRect.top + (rect.height / 2) - (checkmarkSize / 2)}px`;
+                gameContainer.appendChild(checkmark);
+            }
+            
+            function playSound(type) {
+                // ... (código sin cambios)
+                if (audioContext.state === 'suspended') audioContext.resume();
+                const now = audioContext.currentTime;
+                const gainNode = audioContext.createGain();
+                gainNode.gain.setValueAtTime(0.1, now);
+                gainNode.connect(audioContext.destination);
+                if (type === 'correct') {
+                    [523, 659, 783].forEach((freq, i) => {
+                        const osc = audioContext.createOscillator();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + i * 0.08);
+                        osc.connect(gainNode);
+                        osc.start(now + i * 0.08);
+                        osc.stop(now + i * 0.08 + 0.1);
+                    });
+                } else { 
+                    const osc = audioContext.createOscillator();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(160, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.3);
+                    osc.connect(gainNode);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            }
+            
+            // --- INICIALIZACIÓN ---
+            welcomeModal.style.display = 'flex';
+            const imageUrls = Array.from(document.querySelectorAll('img')).map(item => item.src).filter(Boolean);
+            imageUrls.push('fondo vacio.png');
+            
+            preloadImages(imageUrls, initializeGame);
+            
+            gameContainer.addEventListener('click', onGameClick);
+
+            playAgainButton.addEventListener('click', () => {
+                explanationModal.style.display = 'none';
+                speak("");
+                startGame();
+            });
+            const closeAndSilence = () => {
+                explanationModal.style.display = 'none';
+                speechSynthesis.cancel();
+            }
+            closeButton.addEventListener('click', closeAndSilence);
+            window.addEventListener('click', (e) => { if (e.target == explanationModal) closeAndSilence(); });
+            
+            window.addEventListener('load', () => {
+                 document.querySelectorAll('.game-item').forEach(item => {
+                    const computedStyle = window.getComputedStyle(item);
+                    originalPositions[item.id] = { left: computedStyle.left, top: computedStyle.top };
+                });
+            });
+
+        });
+    </script>
+</body>
+</html>
